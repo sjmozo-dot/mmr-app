@@ -1,10 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MMR Abogados — Sistema de Gestión</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>MMR Abogados</title>
+  <meta name="description" content="Sistema de gestión MMR Abogados" />
+  <meta name="theme-color" content="#1A1A1A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MMR" />
+  <link rel="manifest" href="manifest.json" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -304,9 +309,68 @@
       .two-col { grid-template-columns: 1fr; }
       #timer-panel { width: 340px; }
     }
+
+    /* ── MOBILE ── */
+    @media (max-width: 640px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        width: 260px;
+        z-index: 400;
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .sidebar-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 399;
+      }
+      .sidebar-overlay.active { display: block; }
+      .main-content { margin-left: 0; padding: 16px; padding-top: 64px; }
+      .mobile-topbar {
+        display: flex !important;
+        position: fixed; top: 0; left: 0; right: 0;
+        height: 56px;
+        background: var(--dark);
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        z-index: 300;
+      }
+      .mobile-topbar .logo-text { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300; letter-spacing: 0.12em; color: var(--white); }
+      .mobile-menu-btn { background: none; border: none; color: var(--white); font-size: 1.4rem; cursor: pointer; padding: 8px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .stat-card { padding: 16px; }
+      .stat-value { font-size: 1.5rem; }
+      .card { padding: 16px; }
+      .page-title { font-size: 1.5rem; }
+      .filters { flex-direction: column; gap: 8px; }
+      .filters .form-group { min-width: unset; width: 100%; }
+      .form-row { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      #timer-panel { width: calc(100vw - 32px); right: 16px; bottom: 16px; }
+      .timer-toggle-fab { bottom: 16px; right: 16px; }
+      table { font-size: 0.78rem; }
+      tbody td { padding: 10px 8px; }
+      thead th { padding: 0 8px 10px; }
+      .modal { padding: 24px 20px; }
+      .page-header { flex-direction: column; gap: 12px; }
+      .export-btns { flex-wrap: wrap; }
+    }
+
+    .mobile-topbar { display: none; }
+    .sidebar-overlay { display: none; }
   </style>
 </head>
 <body>
+
+<!-- MOBILE TOPBAR -->
+<div class="mobile-topbar">
+  <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+  <div class="logo-text">MMR</div>
+  <div style="width:40px"></div>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
 
 <!-- AUTH -->
 <div id="auth-screen">
@@ -379,7 +443,7 @@
     <!-- HOURS -->
     <div id="page-hours" class="page">
       <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><h1 class="page-title">Registro de Horas</h1><p class="page-subtitle">Registra y gestiona tus horas de trabajo</p></div>
+        <div><h1 class="page-title">Registro de Horas</h1><p class="page-subtitle" id="hours-subtitle">Registra y gestiona tus horas de trabajo</p></div>
         <button class="btn btn-primary btn-sm" onclick="openModal('modal-hours')">+ Nueva entrada</button>
       </div>
       <div class="filters">
@@ -387,6 +451,9 @@
         <div class="form-group"><label>Hasta</label><input type="date" id="filter-hours-to" onchange="loadHours()" /></div>
         <div class="form-group"><label>Cliente</label>
           <select id="filter-hours-client" onchange="loadHours()"><option value="">Todos</option></select>
+        </div>
+        <div class="form-group admin-only" id="filter-hours-user-wrap" style="display:none"><label>Abogado</label>
+          <select id="filter-hours-user" onchange="loadHours()"><option value="">Todos</option></select>
         </div>
       </div>
       <div class="card">
@@ -396,7 +463,7 @@
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Materia</th><th>Descripción</th><th>Horas</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th id="hours-th-user" style="display:none">Abogado</th><th>Cliente</th><th>Materia</th><th>Descripción</th><th>Horas</th><th></th></tr></thead>
             <tbody id="hours-body"><tr><td colspan="6"><div class="empty-state"><p>Cargando...</p></div></td></tr></tbody>
           </table>
         </div>
@@ -417,6 +484,9 @@
             <option value="">Todas</option><option>Transporte</option><option>Alimentación</option><option>Materiales</option><option>Servicios</option><option>Otros</option>
           </select>
         </div>
+        <div class="form-group admin-only" id="filter-exp-user-wrap" style="display:none"><label>Abogado</label>
+          <select id="filter-exp-user" onchange="loadExpenses()"><option value="">Todos</option></select>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">
@@ -425,7 +495,7 @@
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Materia</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th id="expenses-th-user" style="display:none">Abogado</th><th>Cliente</th><th>Materia</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
             <tbody id="expenses-body"><tr><td colspan="7"><div class="empty-state"><p>Cargando...</p></div></td></tr></tbody>
           </table>
         </div>
@@ -658,6 +728,20 @@ async function initApp(user) {
   document.getElementById('sidebar-role').textContent = profile?.role === 'admin' ? 'Administrador' : 'Socio';
   if (profile?.role === 'admin') {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+    // Show abogado column headers and filters
+    const thUser1 = document.getElementById('hours-th-user');
+    const thUser2 = document.getElementById('expenses-th-user');
+    if (thUser1) thUser1.style.display = '';
+    if (thUser2) thUser2.style.display = '';
+    // Load users into filter dropdowns
+    const { data: allUsers } = await sb.from('profiles').select('id, full_name').order('full_name');
+    ['filter-hours-user', 'filter-exp-user'].forEach(selId => {
+      const sel = document.getElementById(selId);
+      if (!sel) return;
+      (allUsers||[]).forEach(u => {
+        const o = document.createElement('option'); o.value = u.id; o.textContent = u.full_name; sel.appendChild(o);
+      });
+    });
   }
   const now = new Date();
   document.getElementById('dashboard-date').textContent = now.toLocaleDateString('es-CL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
@@ -788,7 +872,11 @@ async function loadHours() {
   const from = document.getElementById('filter-hours-from').value;
   const to = document.getElementById('filter-hours-to').value;
   const clientId = document.getElementById('filter-hours-client').value;
-  let q = sb.from('time_entries').select('*, matters(name, clients(name, id))').eq('user_id', currentUser.id).order('date', { ascending: false });
+  const isAdmin = currentProfile?.role === 'admin';
+  const filterUserId = isAdmin ? (document.getElementById('filter-hours-user')?.value || '') : currentUser.id;
+
+  let q = sb.from('time_entries').select('*, profiles(full_name), matters(name, clients(name, id))').order('date', { ascending: false });
+  if (!isAdmin || filterUserId) q = q.eq('user_id', filterUserId || currentUser.id);
   if (from) q = q.gte('date', from);
   if (to) q = q.lte('date', to);
   const { data } = await q;
@@ -797,13 +885,15 @@ async function loadHours() {
   const total = entries.reduce((s,e) => s + parseFloat(e.hours), 0);
   document.getElementById('hours-total-label').textContent = `Total: ${total.toFixed(2)} hrs`;
   const tbody = document.getElementById('hours-body');
+  const colSpan = isAdmin ? 7 : 6;
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◷</div><p>Sin registros en el período seleccionado.</p></div></td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colSpan}"><div class="empty-state"><div class="empty-icon">◷</div><p>Sin registros en el período seleccionado.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = entries.map(e => `
     <tr>
       <td>${formatDate(e.date)}</td>
+      ${isAdmin ? `<td><span class="badge badge-gray">${e.profiles?.full_name||'—'}</span></td>` : ''}
       <td>${e.matters?.clients?.name||'—'}</td>
       <td>${e.matters?.name||'—'}</td>
       <td>${e.description||'—'}</td>
@@ -835,7 +925,11 @@ async function loadExpenses() {
   const from = document.getElementById('filter-exp-from').value;
   const to = document.getElementById('filter-exp-to').value;
   const cat = document.getElementById('filter-exp-cat').value;
-  let q = sb.from('expenses').select('*, matters(name, clients(name))').eq('user_id', currentUser.id).order('date', { ascending: false });
+  const isAdmin = currentProfile?.role === 'admin';
+  const filterUserId = isAdmin ? (document.getElementById('filter-exp-user')?.value || '') : currentUser.id;
+
+  let q = sb.from('expenses').select('*, profiles(full_name), matters(name, clients(name))').order('date', { ascending: false });
+  if (!isAdmin || filterUserId) q = q.eq('user_id', filterUserId || currentUser.id);
   if (from) q = q.gte('date', from);
   if (to) q = q.lte('date', to);
   if (cat) q = q.eq('category', cat);
@@ -844,13 +938,15 @@ async function loadExpenses() {
   const total = entries.reduce((s,e) => s + parseFloat(e.amount), 0);
   document.getElementById('expenses-total-label').textContent = `Total: ${formatCLP(total)}`;
   const tbody = document.getElementById('expenses-body');
+  const colSpan = isAdmin ? 8 : 7;
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">◎</div><p>Sin gastos en el período seleccionado.</p></div></td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colSpan}"><div class="empty-state"><div class="empty-icon">◎</div><p>Sin gastos en el período seleccionado.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = entries.map(e => `
     <tr>
       <td>${formatDate(e.date)}</td>
+      ${isAdmin ? `<td><span class="badge badge-gray">${e.profiles?.full_name||'—'}</span></td>` : ''}
       <td>${e.matters?.clients?.name||'—'}</td>
       <td>${e.matters?.name||'—'}</td>
       <td>${e.category?`<span class="badge badge-gray">${e.category}</span>`:'—'}</td>
@@ -1296,6 +1392,29 @@ function formatCLP(amount) {
 
 // ── INIT ──
 sb.auth.getSession().then(({ data: { session } }) => { if (session) initApp(session.user); });
+
+// ── MOBILE SIDEBAR ──
+function toggleMobileSidebar() {
+  document.querySelector('.sidebar').classList.toggle('mobile-open');
+  document.getElementById('sidebar-overlay').classList.toggle('active');
+}
+
+// Close sidebar when nav item clicked on mobile
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    if (window.innerWidth <= 640) {
+      document.querySelector('.sidebar').classList.remove('mobile-open');
+      document.getElementById('sidebar-overlay').classList.remove('active');
+    }
+  });
+});
+
+// ── SERVICE WORKER (PWA) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
