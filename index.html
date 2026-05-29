@@ -597,10 +597,19 @@
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-hours">
   <div class="modal">
-    <div class="modal-title">Nueva entrada de horas</div>
+    <div class="modal-title" id="h-modal-title">Nueva entrada de horas</div>
+    <input type="hidden" id="h-edit-id" />
     <div class="form-row">
       <div class="form-group"><label>Fecha</label><input type="date" id="h-date" /></div>
-      <div class="form-group"><label>Horas</label><input type="number" id="h-hours" step="0.25" min="0.25" max="24" placeholder="0.0" /></div>
+      <div class="form-group">
+        <label>Tiempo trabajado</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="h-hh" min="0" max="24" step="1" placeholder="0" style="flex:1;min-width:0" />
+          <span style="color:var(--mid);font-size:0.8rem">h</span>
+          <input type="number" id="h-mm" min="0" max="59" step="1" placeholder="0" style="flex:1;min-width:0" />
+          <span style="color:var(--mid);font-size:0.8rem">min</span>
+        </div>
+      </div>
     </div>
     <div class="form-group"><label>Cliente</label>
       <select id="h-client" onchange="loadMattersForSelect('h-client','h-matter')"><option value="">Seleccionar cliente</option></select>
@@ -620,7 +629,8 @@
 
 <div class="modal-overlay" id="modal-expenses">
   <div class="modal">
-    <div class="modal-title">Nuevo gasto</div>
+    <div class="modal-title" id="e-modal-title">Nuevo gasto</div>
+    <input type="hidden" id="e-edit-id" />
     <div class="form-row">
       <div class="form-group"><label>Fecha</label><input type="date" id="e-date" /></div>
       <div class="form-group"><label>Monto (CLP)</label><input type="number" id="e-amount" min="0" placeholder="0" /></div>
@@ -639,6 +649,11 @@
     <div class="form-group"><label>Descripción</label>
       <textarea id="e-desc" rows="2" placeholder="Detalle del gasto..."></textarea>
     </div>
+    <div class="form-group">
+      <label>Documento (boleta, factura, etc.)</label>
+      <input type="file" id="e-file" accept="image/*,.pdf,.doc,.docx" style="padding:8px 0;border:none" />
+      <div id="e-existing-doc" style="margin-top:8px;font-size:0.82rem;color:var(--mid);display:none"></div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-expenses')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveExpense()">Guardar</button>
@@ -648,8 +663,15 @@
 
 <div class="modal-overlay" id="modal-client">
   <div class="modal">
-    <div class="modal-title">Nuevo cliente</div>
+    <div class="modal-title" id="c-modal-title">Nuevo cliente</div>
+    <input type="hidden" id="c-edit-id" />
     <div class="form-group"><label>Nombre del cliente</label><input type="text" id="c-name" placeholder="Nombre de la empresa o persona" /></div>
+    <div class="form-group"><label>Razón social</label><input type="text" id="c-razon-social" placeholder="Razón social para facturas" /></div>
+    <div class="form-row">
+      <div class="form-group"><label>RUT</label><input type="text" id="c-rut" placeholder="12.345.678-9" /></div>
+      <div class="form-group"><label>Socio creador</label><select id="c-created-by"><option value="">— Seleccionar —</option></select></div>
+    </div>
+    <div class="form-group"><label>Domicilio</label><input type="text" id="c-domicilio" placeholder="Dirección de facturación" /></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-client')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient()">Guardar</button>
@@ -659,9 +681,21 @@
 
 <div class="modal-overlay" id="modal-matter">
   <div class="modal">
-    <div class="modal-title">Nueva materia</div>
+    <div class="modal-title" id="m-modal-title">Nueva materia</div>
     <input type="hidden" id="m-client-id" />
+    <input type="hidden" id="m-edit-id" />
     <div class="form-group"><label>Nombre de la materia</label><input type="text" id="m-name" placeholder="Ej: Permiso ambiental proyecto X" /></div>
+    <div class="form-row">
+      <div class="form-group"><label>Honorario pactado</label><input type="number" id="m-honorario" min="0" step="1" placeholder="0" /></div>
+      <div class="form-group"><label>Moneda</label>
+        <select id="m-currency"><option value="CLP">CLP</option><option value="UF">UF</option><option value="USD">USD</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Premio (bono)</label><input type="number" id="m-premio" min="0" step="1" placeholder="0" /></div>
+      <div class="form-group"><label>Honorarios pagados</label><input type="number" id="m-pagados" min="0" step="1" placeholder="0" /></div>
+    </div>
+    <div class="form-group"><label>Socio creador</label><select id="m-created-by"><option value="">— Seleccionar —</option></select></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-matter')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveMatter()">Guardar</button>
@@ -772,6 +806,38 @@ function showPage(name, el) {
 function openModal(id) {
   document.getElementById(id).classList.add('active');
   if (id === 'modal-hours' || id === 'modal-expenses') populateClientSelects();
+  if (id === 'modal-client') {
+    if (!document.getElementById('c-edit-id').value) {
+      document.getElementById('c-modal-title').textContent = 'Nuevo cliente';
+      ['c-name','c-razon-social','c-rut','c-domicilio'].forEach(i => document.getElementById(i).value = '');
+    }
+    populateSocioSelect('c-created-by', document.getElementById('c-created-by').value);
+  }
+  if (id === 'modal-matter') {
+    if (!document.getElementById('m-edit-id').value) {
+      document.getElementById('m-modal-title').textContent = 'Nueva materia';
+      ['m-name','m-honorario','m-premio','m-pagados'].forEach(i => document.getElementById(i).value = '');
+      document.getElementById('m-currency').value = 'CLP';
+    }
+    populateSocioSelect('m-created-by', document.getElementById('m-created-by').value);
+  }
+  if (id === 'modal-hours') {
+    if (!document.getElementById('h-edit-id').value) {
+      document.getElementById('h-modal-title').textContent = 'Nueva entrada de horas';
+      document.getElementById('h-hh').value = '';
+      document.getElementById('h-mm').value = '';
+      document.getElementById('h-desc').value = '';
+    }
+  }
+  if (id === 'modal-expenses') {
+    if (!document.getElementById('e-edit-id').value) {
+      document.getElementById('e-modal-title').textContent = 'Nuevo gasto';
+      document.getElementById('e-amount').value = '';
+      document.getElementById('e-desc').value = '';
+      document.getElementById('e-file').value = '';
+      document.getElementById('e-existing-doc').style.display = 'none';
+    }
+  }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }));
@@ -827,44 +893,176 @@ async function loadMattersForSelect(clientSelectId, matterSelectId) {
 async function saveClient() {
   const name = document.getElementById('c-name').value.trim();
   if (!name) { toast('Ingresa el nombre del cliente', 'error'); return; }
-  const { error } = await sb.from('clients').insert({ name });
-  if (error) { toast('Error al guardar', 'error'); return; }
-  toast('Cliente creado'); closeModal('modal-client');
-  document.getElementById('c-name').value = '';
+  const editId = document.getElementById('c-edit-id').value;
+  const payload = {
+    name,
+    razon_social: document.getElementById('c-razon-social').value.trim() || null,
+    rut:          document.getElementById('c-rut').value.trim() || null,
+    domicilio:    document.getElementById('c-domicilio').value.trim() || null,
+    created_by:   document.getElementById('c-created-by').value || null
+  };
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('clients').update(payload).eq('id', editId));
+  } else {
+    ({ error } = await sb.from('clients').insert(payload));
+  }
+  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+  toast(editId ? 'Cliente actualizado' : 'Cliente creado');
+  closeModal('modal-client');
+  document.getElementById('c-edit-id').value = '';
+  ['c-name','c-razon-social','c-rut','c-domicilio'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('c-created-by').value = '';
   await loadClients(); loadClientsList();
 }
 
+async function editClient(id) {
+  const c = (await sb.from('clients').select('*').eq('id', id).single()).data;
+  if (!c) return;
+  document.getElementById('c-edit-id').value = c.id;
+  document.getElementById('c-name').value = c.name || '';
+  document.getElementById('c-razon-social').value = c.razon_social || '';
+  document.getElementById('c-rut').value = c.rut || '';
+  document.getElementById('c-domicilio').value = c.domicilio || '';
+  document.getElementById('c-modal-title').textContent = 'Editar cliente';
+  await populateSocioSelect('c-created-by', c.created_by);
+  openModal('modal-client');
+}
+
+async function deleteClient(id, name) {
+  if (!confirm(`¿Eliminar el cliente "${name}" y todas sus materias asociadas?\n\nEsta acción no se puede deshacer.`)) return;
+  const { error } = await sb.from('clients').delete().eq('id', id);
+  if (error) { toast('No se pudo eliminar (probablemente tiene horas o gastos asociados)', 'error'); return; }
+  toast('Cliente eliminado');
+  await loadClients(); loadClientsList();
+}
+
+// ── Helper: poblar dropdown de socios ──
+let allSocios = [];
+async function loadSocios() {
+  const { data } = await sb.from('profiles').select('id, full_name').order('full_name');
+  allSocios = data || [];
+}
+async function populateSocioSelect(selectId, selectedId) {
+  if (!allSocios.length) await loadSocios();
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    allSocios.map(u => `<option value="${u.id}" ${u.id===selectedId?'selected':''}>${u.full_name}</option>`).join('');
+}
+
 async function loadClientsList() {
+  await loadSocios();
   const { data: clients } = await sb.from('clients').select('*, matters(*)').order('name');
   const container = document.getElementById('clients-list');
   if (!clients || !clients.length) {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">◇</div><p>No hay clientes registrados aún.</p></div>';
     return;
   }
-  container.innerHTML = clients.map(c => `
-    <div class="card">
-      <div class="card-title">${c.name}
-        <button class="btn btn-secondary btn-sm" onclick="openMatterModal('${c.id}')">+ Materia</button>
-      </div>
-      ${c.matters && c.matters.length
-        ? `<table><thead><tr><th>Materia</th></tr></thead><tbody>${c.matters.map(m=>`<tr><td>${m.name}</td></tr>`).join('')}</tbody></table>`
-        : '<p style="color:var(--mid);font-size:0.85rem">Sin materias registradas.</p>'}
-    </div>`).join('');
+  const socioName = id => allSocios.find(u => u.id === id)?.full_name || '—';
+  const escapeJs = s => (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+  container.innerHTML = clients.map(c => {
+    const meta = [
+      c.razon_social ? `<strong>${c.razon_social}</strong>` : null,
+      c.rut          ? `RUT ${c.rut}`                       : null,
+      c.domicilio    ? `${c.domicilio}`                     : null,
+      c.created_by   ? `Socio: ${socioName(c.created_by)}`  : null
+    ].filter(Boolean).join(' · ');
+    const mattersTable = c.matters && c.matters.length
+      ? `<div class="table-wrapper"><table>
+          <thead><tr><th>Materia</th><th>Honorario</th><th>Premio</th><th>Pagado</th><th>Pendiente</th><th>Socio</th><th></th></tr></thead>
+          <tbody>${c.matters.map(m => {
+            const pendiente = (parseFloat(m.honorario_pactado||0) + parseFloat(m.premio||0)) - parseFloat(m.honorarios_pagados||0);
+            const fmtMoney = v => m.currency === 'CLP' ? formatCLP(v) : `${parseFloat(v||0).toLocaleString('es-CL')} ${m.currency||''}`;
+            return `<tr>
+              <td>${m.name}</td>
+              <td>${fmtMoney(m.honorario_pactado||0)}</td>
+              <td>${fmtMoney(m.premio||0)}</td>
+              <td>${fmtMoney(m.honorarios_pagados||0)}</td>
+              <td><strong style="color:${pendiente>0?'var(--error)':'var(--green)'}">${fmtMoney(pendiente)}</strong></td>
+              <td><span class="badge badge-gray">${socioName(m.created_by)}</span></td>
+              <td style="white-space:nowrap">
+                <button class="btn btn-ghost btn-sm" onclick="editMatter('${m.id}')" title="Editar">✎</button>
+                <button class="btn btn-danger" onclick="deleteMatter('${m.id}','${escapeJs(m.name)}')" title="Eliminar">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}</tbody></table></div>`
+      : '<p style="color:var(--mid);font-size:0.85rem">Sin materias registradas.</p>';
+    return `
+      <div class="card">
+        <div class="card-title">
+          <span>${c.name}</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="openMatterModal('${c.id}')">+ Materia</button>
+            <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')" title="Editar cliente">✎ Editar</button>
+            <button class="btn btn-danger" onclick="deleteClient('${c.id}','${escapeJs(c.name)}')" title="Eliminar cliente">✕ Eliminar</button>
+          </div>
+        </div>
+        ${meta ? `<p style="color:var(--mid);font-size:0.85rem;margin-bottom:12px">${meta}</p>` : ''}
+        ${mattersTable}
+      </div>`;
+  }).join('');
 }
 
 function openMatterModal(clientId) {
   document.getElementById('m-client-id').value = clientId;
-  document.getElementById('m-name').value = '';
+  document.getElementById('m-edit-id').value = '';
+  ['m-name','m-honorario','m-premio','m-pagados'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('m-currency').value = 'CLP';
+  document.getElementById('m-created-by').value = '';
+  document.getElementById('m-modal-title').textContent = 'Nueva materia';
   openModal('modal-matter');
 }
 
 async function saveMatter() {
   const name = document.getElementById('m-name').value.trim();
   const clientId = document.getElementById('m-client-id').value;
+  const editId = document.getElementById('m-edit-id').value;
   if (!name) { toast('Ingresa el nombre de la materia', 'error'); return; }
-  const { error } = await sb.from('matters').insert({ name, client_id: clientId });
-  if (error) { toast('Error al guardar', 'error'); return; }
-  toast('Materia creada'); closeModal('modal-matter'); loadClientsList();
+  const payload = {
+    name,
+    honorario_pactado:  parseFloat(document.getElementById('m-honorario').value) || 0,
+    currency:           document.getElementById('m-currency').value || 'CLP',
+    premio:             parseFloat(document.getElementById('m-premio').value) || 0,
+    honorarios_pagados: parseFloat(document.getElementById('m-pagados').value) || 0,
+    created_by:         document.getElementById('m-created-by').value || null
+  };
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('matters').update(payload).eq('id', editId));
+  } else {
+    payload.client_id = clientId;
+    ({ error } = await sb.from('matters').insert(payload));
+  }
+  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+  toast(editId ? 'Materia actualizada' : 'Materia creada');
+  closeModal('modal-matter');
+  document.getElementById('m-edit-id').value = '';
+  loadClientsList();
+}
+
+async function editMatter(id) {
+  const m = (await sb.from('matters').select('*').eq('id', id).single()).data;
+  if (!m) return;
+  document.getElementById('m-edit-id').value = m.id;
+  document.getElementById('m-client-id').value = m.client_id;
+  document.getElementById('m-name').value = m.name || '';
+  document.getElementById('m-honorario').value = m.honorario_pactado || '';
+  document.getElementById('m-currency').value = m.currency || 'CLP';
+  document.getElementById('m-premio').value = m.premio || '';
+  document.getElementById('m-pagados').value = m.honorarios_pagados || '';
+  document.getElementById('m-modal-title').textContent = 'Editar materia';
+  await populateSocioSelect('m-created-by', m.created_by);
+  openModal('modal-matter');
+}
+
+async function deleteMatter(id, name) {
+  if (!confirm(`¿Eliminar la materia "${name}"?\n\nEsta acción no se puede deshacer.`)) return;
+  const { error } = await sb.from('matters').delete().eq('id', id);
+  if (error) { toast('No se pudo eliminar (probablemente tiene horas o gastos asociados)', 'error'); return; }
+  toast('Materia eliminada');
+  loadClientsList();
 }
 
 // ── HOURS ──
@@ -883,7 +1081,7 @@ async function loadHours() {
   let entries = data || [];
   if (clientId) entries = entries.filter(e => e.matters?.clients?.id === clientId);
   const total = entries.reduce((s,e) => s + parseFloat(e.hours), 0);
-  document.getElementById('hours-total-label').textContent = `Total: ${total.toFixed(2)} hrs`;
+  document.getElementById('hours-total-label').textContent = `Total: ${formatHM(total)} (${total.toFixed(2)} hrs)`;
   const tbody = document.getElementById('hours-body');
   const colSpan = isAdmin ? 7 : 6;
   if (!entries.length) {
@@ -897,27 +1095,77 @@ async function loadHours() {
       <td>${e.matters?.clients?.name||'—'}</td>
       <td>${e.matters?.name||'—'}</td>
       <td>${e.description||'—'}</td>
-      <td><span class="badge badge-green">${parseFloat(e.hours).toFixed(2)} hrs</span></td>
-      <td><button class="btn btn-danger" onclick="deleteEntry('time_entries','${e.id}',loadHours)">✕</button></td>
+      <td><span class="badge badge-green">${formatHM(e.hours)}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editHourEntry('${e.id}')" title="Editar">✎</button>
+        <button class="btn btn-danger" onclick="deleteEntry('time_entries','${e.id}',loadHours)">✕</button>
+      </td>
     </tr>`).join('');
 }
 
 async function saveHours(prefill) {
   const date = prefill?.date || document.getElementById('h-date').value;
-  const hours = prefill?.hours || parseFloat(document.getElementById('h-hours').value);
+  let hours;
+  if (prefill?.hours) {
+    hours = prefill.hours;
+  } else {
+    const hh = parseInt(document.getElementById('h-hh').value, 10) || 0;
+    const mm = parseInt(document.getElementById('h-mm').value, 10) || 0;
+    if (mm > 59) { toast('Los minutos deben ser entre 0 y 59', 'error'); return false; }
+    hours = hh + (mm / 60);
+  }
   const matterId = prefill?.matterId || document.getElementById('h-matter').value;
   const desc = prefill?.desc || document.getElementById('h-desc').value.trim();
-  if (!date || !hours || !matterId) { toast('Completa fecha, horas y materia', 'error'); return false; }
-  const { error } = await sb.from('time_entries').insert({ user_id: currentUser.id, date, hours, matter_id: matterId, description: desc });
-  if (error) { toast('Error al guardar', 'error'); return false; }
+  if (!date || !hours || !matterId) { toast('Completa fecha, tiempo trabajado y materia', 'error'); return false; }
+  const editId = document.getElementById('h-edit-id')?.value;
+  let error;
+  if (editId && !prefill) {
+    ({ error } = await sb.from('time_entries').update({ date, hours, matter_id: matterId, description: desc }).eq('id', editId));
+  } else {
+    ({ error } = await sb.from('time_entries').insert({ user_id: currentUser.id, date, hours, matter_id: matterId, description: desc }));
+  }
+  if (error) { toast('Error al guardar: ' + error.message, 'error'); return false; }
   if (!prefill) {
-    toast('Horas registradas'); closeModal('modal-hours');
-    document.getElementById('h-hours').value = '';
+    toast(editId ? 'Entrada actualizada' : 'Horas registradas');
+    closeModal('modal-hours');
+    document.getElementById('h-edit-id').value = '';
+    document.getElementById('h-hh').value = '';
+    document.getElementById('h-mm').value = '';
     document.getElementById('h-desc').value = '';
     loadHours();
   }
   loadDashboard();
   return true;
+}
+
+// Convertir decimal hours a "Xh YYm"
+function formatHM(decimalHours) {
+  const total = Math.round(parseFloat(decimalHours||0) * 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m.toString().padStart(2,'0')}m`;
+}
+
+// Editar entrada de horas
+async function editHourEntry(id) {
+  const { data: e } = await sb.from('time_entries').select('*, matters(client_id)').eq('id', id).single();
+  if (!e) return;
+  document.getElementById('h-edit-id').value = e.id;
+  document.getElementById('h-date').value = e.date;
+  const total = Math.round(parseFloat(e.hours) * 60);
+  document.getElementById('h-hh').value = Math.floor(total / 60);
+  document.getElementById('h-mm').value = total % 60;
+  document.getElementById('h-desc').value = e.description || '';
+  document.getElementById('h-modal-title').textContent = 'Editar entrada de horas';
+  openModal('modal-hours');
+  // poblar selects cliente/materia
+  if (e.matters?.client_id) {
+    document.getElementById('h-client').value = e.matters.client_id;
+    await loadMattersForSelect('h-client','h-matter');
+    document.getElementById('h-matter').value = e.matter_id;
+  }
 }
 
 // ── EXPENSES ──
@@ -950,9 +1198,12 @@ async function loadExpenses() {
       <td>${e.matters?.clients?.name||'—'}</td>
       <td>${e.matters?.name||'—'}</td>
       <td>${e.category?`<span class="badge badge-gray">${e.category}</span>`:'—'}</td>
-      <td>${e.description||'—'}</td>
+      <td>${e.description||'—'}${e.document_url?` <a href="${e.document_url}" target="_blank" style="color:var(--green);margin-left:6px" title="${e.document_name||'documento'}">📎</a>`:''}</td>
       <td><strong>${formatCLP(e.amount)}</strong></td>
-      <td><button class="btn btn-danger" onclick="deleteEntry('expenses','${e.id}',loadExpenses)">✕</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editExpense('${e.id}')" title="Editar">✎</button>
+        <button class="btn btn-danger" onclick="deleteEntry('expenses','${e.id}',loadExpenses)">✕</button>
+      </td>
     </tr>`).join('');
 }
 
@@ -962,13 +1213,68 @@ async function saveExpense() {
   const matterId = document.getElementById('e-matter').value;
   const category = document.getElementById('e-category').value;
   const desc = document.getElementById('e-desc').value.trim();
+  const editId = document.getElementById('e-edit-id').value;
   if (!date || !amount || !matterId) { toast('Completa fecha, monto y materia', 'error'); return; }
-  const { error } = await sb.from('expenses').insert({ user_id: currentUser.id, date, amount, matter_id: matterId, category, description: desc });
-  if (error) { toast('Error al guardar', 'error'); return; }
-  toast('Gasto registrado'); closeModal('modal-expenses');
+
+  // Subir archivo si se eligió uno
+  const fileInput = document.getElementById('e-file');
+  const file = fileInput.files[0];
+  let document_url = null, document_name = null;
+  if (file) {
+    if (file.size > 10 * 1024 * 1024) { toast('El archivo no puede pesar más de 10 MB', 'error'); return; }
+    const ext = file.name.split('.').pop();
+    const filename = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error: upErr } = await sb.storage.from('expense-docs').upload(filename, file);
+    if (upErr) { toast('Error al subir el documento: ' + upErr.message, 'error'); return; }
+    const { data: pub } = sb.storage.from('expense-docs').getPublicUrl(filename);
+    document_url = pub.publicUrl;
+    document_name = file.name;
+  }
+
+  const payload = { date, amount, matter_id: matterId, category, description: desc };
+  if (document_url) { payload.document_url = document_url; payload.document_name = document_name; }
+
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('expenses').update(payload).eq('id', editId));
+  } else {
+    payload.user_id = currentUser.id;
+    ({ error } = await sb.from('expenses').insert(payload));
+  }
+  if (error) { toast('Error al guardar: ' + error.message, 'error'); return; }
+  toast(editId ? 'Gasto actualizado' : 'Gasto registrado');
+  closeModal('modal-expenses');
+  document.getElementById('e-edit-id').value = '';
   document.getElementById('e-amount').value = '';
   document.getElementById('e-desc').value = '';
+  document.getElementById('e-file').value = '';
+  document.getElementById('e-existing-doc').style.display = 'none';
   loadExpenses(); loadDashboard();
+}
+
+async function editExpense(id) {
+  const { data: e } = await sb.from('expenses').select('*, matters(client_id)').eq('id', id).single();
+  if (!e) return;
+  document.getElementById('e-edit-id').value = e.id;
+  document.getElementById('e-date').value = e.date;
+  document.getElementById('e-amount').value = e.amount;
+  document.getElementById('e-category').value = e.category || '';
+  document.getElementById('e-desc').value = e.description || '';
+  document.getElementById('e-file').value = '';
+  document.getElementById('e-modal-title').textContent = 'Editar gasto';
+  const existing = document.getElementById('e-existing-doc');
+  if (e.document_url) {
+    existing.innerHTML = `Documento actual: <a href="${e.document_url}" target="_blank" style="color:var(--green)">${e.document_name||'Ver'}</a> <span style="color:var(--mid)">(sube otro para reemplazar)</span>`;
+    existing.style.display = 'block';
+  } else {
+    existing.style.display = 'none';
+  }
+  openModal('modal-expenses');
+  if (e.matters?.client_id) {
+    document.getElementById('e-client').value = e.matters.client_id;
+    await loadMattersForSelect('e-client','e-matter');
+    document.getElementById('e-matter').value = e.matter_id;
+  }
 }
 
 // ── DELETE ──
@@ -1006,7 +1312,7 @@ async function loadDashboard() {
       <td>${e.matters?.clients?.name||'—'}</td>
       <td>${e.matters?.name||'—'}</td>
       <td>${e.description||'—'}</td>
-      <td><span class="badge badge-green">${parseFloat(e.hours).toFixed(2)} hrs</span></td>
+      <td><span class="badge badge-green">${formatHM(e.hours)}</span></td>
     </tr>`).join('');
 }
 
@@ -1058,7 +1364,7 @@ async function loadReports() {
     </div>`).join('') || '<p style="color:var(--mid);font-size:0.85rem">Sin datos</p>';
 
   document.getElementById('rep-all-hours').innerHTML = filteredHours.length
-    ? filteredHours.map(e=>`<tr><td>${formatDate(e.date)}</td><td>${e.profiles?.full_name||'—'}</td><td>${e.matters?.clients?.name||'—'}</td><td>${e.matters?.name||'—'}</td><td>${e.description||'—'}</td><td><span class="badge badge-green">${parseFloat(e.hours).toFixed(2)} hrs</span></td></tr>`).join('')
+    ? filteredHours.map(e=>`<tr><td>${formatDate(e.date)}</td><td>${e.profiles?.full_name||'—'}</td><td>${e.matters?.clients?.name||'—'}</td><td>${e.matters?.name||'—'}</td><td>${e.description||'—'}</td><td><span class="badge badge-green">${formatHM(e.hours)}</span></td></tr>`).join('')
     : '<tr><td colspan="6"><div class="empty-state"><p>Sin registros en el período.</p></div></td></tr>';
 
   document.getElementById('rep-all-expenses').innerHTML = filteredExpenses.length
@@ -1069,7 +1375,7 @@ async function loadReports() {
 // ── EXPORT EXCEL ──
 function exportHoursExcel() {
   if (!lastReportHours.length) { toast('No hay datos para exportar', 'error'); return; }
-  const rows = [['Fecha','Socio','Cliente','Materia','Descripción','Horas']];
+  const rows = [['Fecha','Socio','Cliente','Materia','Descripción','Horas (decimal)']];
   lastReportHours.forEach(e => rows.push([
     formatDate(e.date),
     e.profiles?.full_name||'—',
@@ -1113,11 +1419,36 @@ function exportExpensesExcel() {
 }
 
 // ── EXPORT WORD (HTML → .doc) ──
-function exportHoursWord() {
+// Convierte el logo.png del repo a base64 para embeberlo en el Word
+let _logoDataUrl = null;
+async function getLogoDataUrl() {
+  if (_logoDataUrl !== null) return _logoDataUrl;
+  try {
+    const r = await fetch('logo.png');
+    if (!r.ok) throw new Error('logo.png no encontrado');
+    const blob = await r.blob();
+    _logoDataUrl = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = rej;
+      fr.readAsDataURL(blob);
+    });
+  } catch (e) {
+    _logoDataUrl = '';
+  }
+  return _logoDataUrl;
+}
+
+async function exportHoursWord() {
   if (!lastReportHours.length) { toast('No hay datos para exportar', 'error'); return; }
   const total = lastReportHours.reduce((s,e)=>s+parseFloat(e.hours),0);
   const clientFilter = document.getElementById('rep-client-filter');
   const clientName = clientFilter?.value ? clientFilter.options[clientFilter.selectedIndex].text : 'Todos los clientes';
+  const logoUrl = await getLogoDataUrl();
+  const logoBlock = logoUrl
+    ? `<img src="${logoUrl}" alt="MMR" style="height:80px;display:block;margin-bottom:8px" />`
+    : `<h1 style="font-size:28px;letter-spacing:4px;margin:0;color:#1A1A1A">MMR</h1>
+       <p style="font-size:9px;letter-spacing:3px;color:#2D6A4F;margin:2px 0 0;text-transform:uppercase">Mozó · Muñoz · Ruiz-Tagle Abogados</p>`;
 
   const rows = lastReportHours.map(e => `
     <tr>
@@ -1126,18 +1457,15 @@ function exportHoursWord() {
       <td style="padding:6px 10px;border:1px solid #ddd">${e.matters?.clients?.name||'—'}</td>
       <td style="padding:6px 10px;border:1px solid #ddd">${e.matters?.name||'—'}</td>
       <td style="padding:6px 10px;border:1px solid #ddd">${e.description||'—'}</td>
-      <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">${parseFloat(e.hours).toFixed(2)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">${formatHM(e.hours)}</td>
     </tr>`).join('');
 
   const html = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>Reporte de Horas MMR</title></head>
     <body style="font-family:Arial,sans-serif;margin:40px">
-      <div style="display:flex;align-items:center;margin-bottom:32px">
-        <div>
-          <h1 style="font-size:28px;letter-spacing:4px;margin:0;color:#1A1A1A">MMR</h1>
-          <p style="font-size:9px;letter-spacing:3px;color:#2D6A4F;margin:2px 0 0;text-transform:uppercase">Mozó · Muñoz · Ruiz-Tagle Abogados</p>
-        </div>
+      <div style="margin-bottom:32px;text-align:center">
+        ${logoBlock}
       </div>
       <h2 style="font-size:16px;color:#2D6A4F;margin-bottom:4px">Reporte de Horas</h2>
       <p style="color:#666;font-size:12px;margin-bottom:4px">Cliente: <strong>${clientName}</strong></p>
@@ -1150,14 +1478,14 @@ function exportHoursWord() {
             <th style="padding:8px 10px;border:1px solid #2D6A4F;text-align:left">Cliente</th>
             <th style="padding:8px 10px;border:1px solid #2D6A4F;text-align:left">Materia</th>
             <th style="padding:8px 10px;border:1px solid #2D6A4F;text-align:left">Descripción</th>
-            <th style="padding:8px 10px;border:1px solid #2D6A4F;text-align:right">Horas</th>
+            <th style="padding:8px 10px;border:1px solid #2D6A4F;text-align:right">Tiempo</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
         <tfoot>
           <tr style="background:#f5f5f5;font-weight:bold">
-            <td colspan="5" style="padding:8px 10px;border:1px solid #ddd;text-align:right">Total horas:</td>
-            <td style="padding:8px 10px;border:1px solid #ddd;text-align:right">${total.toFixed(2)}</td>
+            <td colspan="5" style="padding:8px 10px;border:1px solid #ddd;text-align:right">Total:</td>
+            <td style="padding:8px 10px;border:1px solid #ddd;text-align:right">${formatHM(total)} (${total.toFixed(2)} h)</td>
           </tr>
         </tfoot>
       </table>
